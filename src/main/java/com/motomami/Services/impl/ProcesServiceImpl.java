@@ -20,6 +20,7 @@ import static com.motomami.Utils.Constants.*;
 
 @Service
 public class ProcesServiceImpl implements ProcesService {
+    //TODO hacer los metodos de existIdExternal en partes y vehiculos
     @Value("${path.folder.outFiles}")
     String pathFolderoutFiles;
     @Value("${path.folder.inFiles}")
@@ -36,7 +37,7 @@ public class ProcesServiceImpl implements ProcesService {
     String extensionFileProviders;
     Connection con;
 
-    /*
+    /**
     * Metodo que determina que fichero se leerá según el valor de source
     * */
     public void readFileInfo(String source) {
@@ -57,7 +58,72 @@ public class ProcesServiceImpl implements ProcesService {
             System.err.println("Error leyendo los ficheros"+e.getMessage());
         }
     }
-    /*
+    public void processInfoWithStatusNotProcessed(String source) {
+        try{
+            switch (source){
+                case C_SOURCE_PARTS:
+                   //processInfoParts();
+                    break;
+                case C_SOURCE_CUSTOMER:
+                    processInfoCustomer();
+                    break;
+                case C_SOURCE_VEHICLE:
+                    //processInfoVehicles();
+                    break;
+                default:
+            }
+        } catch (Exception e) {
+            System.err.println("Error leyendo los ficheros"+e.getMessage());
+        }
+    }
+    public void processInfoCustomer() throws SQLException {
+        ArrayList<CustomerDto> customers = getCustomerInfoWithStatus(estadoFichero[0]);
+    }
+    //private ArrayList<CustomerDto> getCustomerInfoWithStatusN() throws SQLException {
+    private ArrayList<CustomerDto> getCustomerInfoWithStatus(String pStatus) throws SQLException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb", "root", "Sergino_PRO1");
+        GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
+        Gson gson = gsonBuilder.create();
+        String query = "SELECT * FROM motomamidb.mm_intcustomers WHERE statusProcess = ?;";
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        ArrayList<CustomerDto> customers = new ArrayList<CustomerDto>();
+        try {
+            ps = con.prepareStatement(query);
+            ps.setString(1, pStatus);
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                CustomerDto customer;
+                String jsonCustomer = rs.getString("contJson");
+                customer = gson.fromJson(jsonCustomer, CustomerDto.class);
+                customers.add(customer);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error executing SELECT query: " + e.getMessage());
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+            if (con != null) {
+                con.close();
+            }
+        }
+        return customers;
+
+    }
+    private String getStatusNotProcessed(){
+        return estadoFichero[0];
+    }
+    private String getOperationNew(){
+        return operation[0];
+    }
+    private String getOperationUpdate(){
+        return operation[1];
+    }
+    /**
     * Metodo generico que usaremos por si nos introducen una fecha en un formato no aceptado ej:2020-11-22
     * */
     public Date getDateFormatMM(String sDate) {
@@ -83,7 +149,7 @@ public class ProcesServiceImpl implements ProcesService {
         }
         return dateReturn;
     }
-    /*
+    /**
     * Metodo que lee el fichero de los partes.
     * */
     public void readFileInfoParts() {
@@ -124,7 +190,7 @@ public class ProcesServiceImpl implements ProcesService {
         }
     }
 
-    /*
+    /**
     * Metodo que rellena un objeto parte con los datos del fichero.
     * .trim() sirve para ignorar los espacios que metan en el fichero
     * */
@@ -195,7 +261,7 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
     }
-    /*
+    /**
     * Metodo que lee el fichero de clientes.
     * */
     public void readFileInfoCustomer() {
@@ -216,14 +282,17 @@ public class ProcesServiceImpl implements ProcesService {
                     listOfCustomer.add(customer);
                     //serializamos el objeto a json y lo guardamos en una variable para su posterior insercion.
                     String customerString = gson.toJson(customer);
-                    boolean existsJson;
+                    boolean existsJson = existsJsonCustomer(customerString);
                     boolean existsId = existsIdExternalCustomer(customers[0]);
-                    existsJson = isSameInfoCustomer(customerString);
-                    if (existsJson){
-                        System.out.println("El json ya esta");
+                    if (existsId) {
+                        if (existsJson) {
+                            System.out.println("El json ya esta");
+                        } else {
+                            insertIntCustomer(customerString, linea, getOperationUpdate());
+                            System.out.println("Cliente actualizado");
+                        }
                     } else{
-                        //lamada al metodo que inserta a la bbdd y le pasamos el string que contiene el json.
-                        insertIntCustomer(customerString,linea);
+                        insertIntCustomer(customerString, linea, getOperationNew());
                         System.out.println("Se han añadido los datitos");
                     }
                 }
@@ -269,10 +338,10 @@ public class ProcesServiceImpl implements ProcesService {
     }
 
 
-    /*
+    /**
     * Metodo que se conecta a la base de datos y comprueba que el json sea igual.
     * */
-    public boolean isSameInfoCustomer(String p_json) throws SQLException {
+    public boolean existsJsonCustomer(String p_json) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb?useUnicode=true&characterEncoding=UTF-8","root", "Sergino_PRO1");
         String query = "select count(*) as numCustomer from mm_intcustomers where contJson = ?;";
         PreparedStatement ps = null;
@@ -293,16 +362,6 @@ public class ProcesServiceImpl implements ProcesService {
         } catch (Exception e){
             System.err.println("Error");
             return false;
-        } finally {
-            if (rs != null) {
-                rs.close();
-            }
-            if (ps != null) {
-                ps.close();
-            }
-            if (con != null) {
-                con.close();
-            }
         }
     }
     public Boolean existsIdExternalCustomer(String idExternal) throws SQLException {
@@ -337,11 +396,36 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
     }
+
+    public void insertCustomer(String p_json) throws SQLException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
+        GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
+        Gson gson = gsonBuilder.create();
+        CustomerDto customer = gson.fromJson(p_json, CustomerDto.class);
+        String query = "INSERT INTO mm_customer (dni, nombre, apellido1, apellido2, email, fecha_nacimiento, telefono, sexo)"+
+                        "VALUES (?,?,?,?,?,?,?,?)";
+        PreparedStatement ps = null;
+        try {
+            ps = con.prepareStatement(query);
+            ps.setString(1, customer.getDNI());
+            ps.setString(2, customer.getNombre());
+            ps.setString(3, customer.getApellido1());
+            ps.setString(4, customer.getApellido2());
+            ps.setString(5,customer.getEmail());
+            ps.setDate(6, (java.sql.Date) customer.getFechaNacimiento());
+            ps.setString(7, customer.getTelefono());
+            ps.setString(8,customer.getSexo());
+
+        }catch (SQLException e){
+            System.err.println(e.getMessage());
+        }
+    }
+
     /*
     * Si el json no es el mismo lo inserta
     * */
-    public void insertIntCustomer(String p_json, String linea) throws SQLException, UnsupportedEncodingException {
-        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb?useUnicode=true&characterEncoding=UTF-8","root", "Sergino_PRO1");
+    public void insertIntCustomer(String p_json, String linea, String operacion) throws SQLException, UnsupportedEncodingException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         String prov = pathFolderProviders.split(";")[0];
         String creador ="mm_app";
         String[] clientes = linea.split(";");
@@ -366,7 +450,7 @@ public class ProcesServiceImpl implements ProcesService {
             ps.setString(8,clientes[0].trim());
             ps.setString(9,"");
             ps.setString(10,"");
-            ps.setString(11,getOperationNew());
+            ps.setString(11,operacion);
 
             int rs3 = ps.executeUpdate();
             System.out.println("Se han actualizado "+ rs3 +" registros");
@@ -382,17 +466,10 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
     }
-    private String getStatusNotProcessed(){
-        return estadoFichero[0];
-    }
-    private String getOperationNew(){
-        return operation[0];
-    }
     /*
      * Metodo que lee el fichero de vehiculos.
      * */
     public void readFileInfoVehicles() {
-        System.out.println("estas llamando al vehicles mongolico");
         List<VehicleDto> listOfVehiculo = new ArrayList<VehicleDto>();
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
         Gson gson = gsonBuilder.create();
@@ -401,17 +478,24 @@ public class ProcesServiceImpl implements ProcesService {
             String linea;
             int numlinea = 0;
             while ((linea = br.readLine()) != null) {
-                if(numlinea != 0) { //condicion para no cargar la primera linea del fichero.
+                if(numlinea != 0) {//condicion para no cargar la primera linea del fichero.
+                    String[] vehicles = linea.split(";");
                     VehicleDto vehiculoDto = new VehicleDto();
                     fillVehicleDto(linea, vehiculoDto);
                     listOfVehiculo.add(vehiculoDto);
                     String vehicleString = gson.toJson(vehiculoDto);
-                    boolean exists;
-                    exists = existInfoVehicle(vehicleString);
-                    if (exists){
-                        System.out.println("Ya existe en la base de datos");
-                    } else {
-                        insertIntVehicle(vehicleString);
+                    boolean existsID = existIdExternalVehicle(vehicles[2]);
+                    boolean existsJson = existJsonVehicle(vehicleString);
+                    if (existsID) {
+                        System.out.println("Existe el idExternal");
+                        if (existsJson) {
+                            System.out.println("Ya existe en la base de datos");
+                        } else {
+                            insertIntVehicle(vehicleString, linea, getOperationUpdate());
+                            System.out.println("Se han actualizado los datos");
+                        }
+                    } else{
+                        insertIntVehicle(vehicleString, linea, getOperationNew());
                         System.out.println("Se han añadido los datitos");
                     }
                 }
@@ -432,7 +516,7 @@ public class ProcesServiceImpl implements ProcesService {
      * */
     public void fillVehicleDto(String linea, VehicleDto vehiculo){
         String[] vehiculos = linea.split(";");
-        String id = vehiculos[2].trim();
+        String idExternal = vehiculos[2].trim();
         String numberPlate = vehiculos[3].trim();
         String tipoVehiculo = vehiculos[4].trim();
         String marca = vehiculos[5].trim();
@@ -441,7 +525,7 @@ public class ProcesServiceImpl implements ProcesService {
         String numeroSerial = vehiculos[8].trim();
         String idInterno = vehiculos[9].trim();
         System.out.println(linea);
-        vehiculo.setIdVehicleExternal(id);
+        vehiculo.setIdVehicleExternal(idExternal);
         vehiculo.setNumberPlate(numberPlate);
         vehiculo.setVehicleType(tipoVehiculo);
         vehiculo.setBrand(marca);
@@ -451,7 +535,7 @@ public class ProcesServiceImpl implements ProcesService {
         vehiculo.setIdVehicle(idInterno);
     }
 
-    public boolean existInfoVehicle(String p_json) throws SQLException {
+    public boolean existJsonVehicle(String p_json) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         String query = "SELECT COUNT(*) AS numVehicle FROM mm_intvehicles WHERE contJson = ?;";
         PreparedStatement ps = null;
@@ -468,29 +552,41 @@ public class ProcesServiceImpl implements ProcesService {
         } catch (SQLException e) {
             System.err.println("Error executing SELECT query: " + e.getMessage());
             return false;
-        } finally {
-            if (rs != null) {
-                rs.close();
+        }
+    }
+    public boolean existIdExternalVehicle(String idExternal) throws SQLException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
+        String query = "SELECT COUNT(*) AS idExternal FROM mm_intvehicles WHERE idExternal = ?;";
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        int count = 0;
+        try {
+            ps = con.prepareStatement(query);
+            ps.setString(1, idExternal);
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                count = rs.getInt("idExternal");
             }
-            if (ps != null) {
-                ps.close();
-            }
-            if (con != null) {
-                con.close();
-            }
+            return count > 0;
+        } catch (SQLException e) {
+            System.err.println("Error executing SELECT query(IdExternalVehicle): " + e.getMessage());
+            return false;
         }
     }
 
-    public void insertIntVehicle(String p_json) throws SQLException {
+
+    public void insertIntVehicle(String p_json, String linea, String operacion) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb?characterEncoding=utf8","root", "Sergino_PRO1");
         String prov = pathFolderProviders.split(";")[0];
+        String[] vehiculos = linea.split(";");
         String creator ="mm_app";
         LocalDateTime fechaHoraActual = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String fechaFormateada = fechaHoraActual.format(formatter);
         String query = "INSERT INTO mm_intvehicles " +
-                "(idProv, contJson, creationDate, lastUpdate, createdBy, updatedBy, statusProcess) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                "(idProv, contJson, creationDate, lastUpdate, createdBy, updatedBy, statusProcess, idExternal, msgError, codeError, operation) " +
+                "VALUES " +
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(query)) {
             ps.setString(1, prov);
             ps.setString(2, p_json);
@@ -499,6 +595,10 @@ public class ProcesServiceImpl implements ProcesService {
             ps.setString(5, creator);
             ps.setString(6, creator);
             ps.setString(7, getStatusNotProcessed());
+            ps.setString(8,vehiculos[2].trim());
+            ps.setString(9,"");
+            ps.setString(10,"");
+            ps.setString(11,operacion);
             int rs3 = ps.executeUpdate();
             System.out.println("Se han actualizado " + rs3 + " registros");
         } catch (SQLException e) {

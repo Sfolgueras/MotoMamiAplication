@@ -7,8 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.motomami.Utils.Constants.C_SOURCE_CUSTOMER;
-import static com.motomami.Utils.Constants.C_SOURCE_PARTS;
+import static com.motomami.Utils.Constants.*;
 
 
 @RestController
@@ -32,6 +31,8 @@ public class HelloController
                 case C_SOURCE_CUSTOMER:
                     pService.readFileInfo(C_SOURCE_CUSTOMER);
                     break;
+                case  C_SOURCE_VEHICLE:
+                    pService.readFileInfo(C_SOURCE_VEHICLE);
                 default:
             }
         } catch (Exception e){
