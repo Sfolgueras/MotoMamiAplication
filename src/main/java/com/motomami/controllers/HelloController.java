@@ -21,7 +21,7 @@ public class HelloController
     }
 
     @RequestMapping(value =("/readInfo/{resource}"), method = RequestMethod.GET, produces = "application/json")
-    String callProcessReadInfo(@PathVariable String resource){
+    String callReadInfo(@PathVariable String resource){
         try{
             System.out.println("\nMe estan llamando desde la web");
             switch (resource.toUpperCase()){
@@ -33,6 +33,30 @@ public class HelloController
                     break;
                 case  C_SOURCE_VEHICLE:
                     pService.readFileInfo(C_SOURCE_VEHICLE);
+                default:
+            }
+        } catch (Exception e){
+            System.err.println("No funcionan las tareas brr");
+        }
+        System.out.println("El valor de resource es: "+resource);
+        return "Buenos dias";
+    }
+
+
+    @RequestMapping(value =("/processInfo/{resource}"), method = RequestMethod.GET, produces = "application/json")
+    String callProcessInfo(@PathVariable String resource){
+        try{
+            System.out.println("\nMe estan llamando desde el process");
+            switch (resource.toUpperCase()){
+                case C_SOURCE_PARTS:
+                //    pService.readFileInfo(C_SOURCE_PARTS);
+                    break;
+                case C_SOURCE_CUSTOMER:
+                    pService.processInfoWithStatusNotProcessed(C_SOURCE_CUSTOMER);
+                    break;
+                case  C_SOURCE_VEHICLE:
+                //    pService.readFileInfo(C_SOURCE_VEHICLE);
+                    break;
                 default:
             }
         } catch (Exception e){

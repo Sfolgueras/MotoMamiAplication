@@ -35,6 +35,12 @@ public class ProcesServiceImpl implements ProcesService {
     String pathFolderCustomersProviders;
     @Value("${extension.file.providers}")
     String extensionFileProviders;
+    @Value("${db.url}")
+    String dbUrl;
+    @Value("${db.user}")
+    String dbUser;
+    @Value("${db.password}")
+    String dbPassword;
     Connection con;
 
     /**
@@ -83,8 +89,8 @@ public class ProcesServiceImpl implements ProcesService {
     private ArrayList<CustomerDto> getCustomerInfoWithStatus(String pStatus) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb", "root", "Sergino_PRO1");
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
-        Gson gson = gsonBuilder.create();
-        String query = "SELECT * FROM motomamidb.mm_intcustomers WHERE statusProcess = ?;";
+        Gson gson = gsonBuilder.setDateFormat("dd/MM/yyyy").create();
+        String query = "SELECT * FROM mm_intcustomers WHERE statusProcess = ?;";
         PreparedStatement ps = null;
         ResultSet rs = null;
         ArrayList<CustomerDto> customers = new ArrayList<CustomerDto>();
@@ -95,6 +101,7 @@ public class ProcesServiceImpl implements ProcesService {
             while (rs.next()) {
                 CustomerDto customer;
                 String jsonCustomer = rs.getString("contJson");
+                String operation = rs.getString("operation");
                 customer = gson.fromJson(jsonCustomer, CustomerDto.class);
                 customers.add(customer);
             }
@@ -112,7 +119,6 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
         return customers;
-
     }
     private String getStatusNotProcessed(){
         return estadoFichero[0];
@@ -270,7 +276,7 @@ public class ProcesServiceImpl implements ProcesService {
         String filePath = pathFolderinFiles+"/"+pathFolderProviders.split(";")[0]+"/"+pathFolderCustomersProviders.split(";")[0]+extensionFileProviders;
         //creamos un gson para la serializacion de los objetos clientes para su insercion en la base de datos.
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
-        Gson gson = gsonBuilder.create();
+        Gson gson = gsonBuilder.setDateFormat("dd/MM/yyyy").create();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String linea;
             int numlinea = 0;
@@ -396,26 +402,45 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
     }
+    public int insertAddres(DireccionDto direccion) throws SQLException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
+        String query = "INSERT INTO mm_address (calle, numero, ciudad, codPostal) VALUES (?,?,?,?)";
+        String queryId = "SELECT id from mm_address WHERE";
+        PreparedStatement ps = con.prepareStatement(query);
+        ps.setString(1,direccion.getTipoVia());
+        ps.setInt(2, Integer.parseInt(direccion.getNumero()));
+        ps.setString(3,direccion.getCiudad());
+        ps.setString(4,direccion.getCodPostal());
+
+        ResultSet rs = ps.executeQuery(queryId);
+        int id = -1;
+        while (rs.next()){
+            id = rs.getInt("id");
+        }
+        return id;
+    }
 
     public void insertCustomer(String p_json) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
         Gson gson = gsonBuilder.create();
         CustomerDto customer = gson.fromJson(p_json, CustomerDto.class);
-        String query = "INSERT INTO mm_customer (dni, nombre, apellido1, apellido2, email, fecha_nacimiento, telefono, sexo)"+
+        String queryInsertCustomer = "INSERT INTO mm_customer (dni, nombre, apellido1, apellido2, email, fecha_nacimiento, telefono, sexo)"+
                         "VALUES (?,?,?,?,?,?,?,?)";
         PreparedStatement ps = null;
         try {
-            ps = con.prepareStatement(query);
-            ps.setString(1, customer.getDNI());
-            ps.setString(2, customer.getNombre());
-            ps.setString(3, customer.getApellido1());
-            ps.setString(4, customer.getApellido2());
-            ps.setString(5,customer.getEmail());
-            ps.setDate(6, (java.sql.Date) customer.getFechaNacimiento());
-            ps.setString(7, customer.getTelefono());
-            ps.setString(8,customer.getSexo());
-
+            if (insertAddres(customer.getDireccion()) > -1) {
+                ps = con.prepareStatement(queryInsertCustomer);
+                ps.setString(1, customer.getDNI());
+                ps.setString(2, customer.getNombre());
+                ps.setString(3, customer.getApellido1());
+                ps.setString(4, customer.getApellido2());
+                ps.setString(5, customer.getEmail());
+                ps.setDate(6, (java.sql.Date) customer.getFechaNacimiento());
+                ps.setString(7, customer.getTelefono());
+                ps.setString(8, customer.getSexo());
+                ps.setInt(9,insertAddres(customer.getDireccion()));
+            }
         }catch (SQLException e){
             System.err.println(e.getMessage());
         }
