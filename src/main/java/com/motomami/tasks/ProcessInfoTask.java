@@ -16,7 +16,7 @@ public class ProcessInfoTask {
     public void task(){
         try{
             System.out.println("\nEsta tarea se lanza cada 15 segundos");
-            pService.processInfoWithStatusNotProcessed(C_SOURCE_CUSTOMER);
+            //pService.processInfoWithStatusNotProcessed(C_SOURCE_CUSTOMER);
         } catch (Exception e){
             System.err.println("No funcó la tarea de los customers");
         }

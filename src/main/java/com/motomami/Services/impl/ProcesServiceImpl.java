@@ -168,20 +168,26 @@ public class ProcesServiceImpl implements ProcesService {
             String linea;
             int numlinea = 0;
             while ((linea = br.readLine()) != null) {
-                if(numlinea != 0) { //condicion para no cargar la primera linea del
-                                    // fichero que contiene el nombre de las columnas.
+                if(numlinea != 0) { //condicion para no cargar la primera linea del fichero que contiene el nombre de las columnas.
+                    String[] vehicles = linea.split(";");
                     PartDto part = new PartDto();
                     fillPartsDto(linea, part);
                     listOfParts.add(part);
                     String partsString = gson.toJson(part);
-                    boolean exists;
-                    exists = existInfoParts(partsString);
-                    if (exists){
-                        System.out.println("Existe");
-                    } else{
-                        //lamada al metodo que inserta a la bbdd y le pasamos el string que contiene el json.
-                        insertIntParts(partsString);
-                        System.out.println("Se han añadido los datitos");
+                    boolean existsJson = existJsonParts(partsString);
+                    boolean existsId = existIdExternalParts(vehicles[0]);
+                    if (existsId) {
+                        if (existsJson) {
+                            System.out.println("Existe el idExternal");
+                            System.out.println("Ya exsiste este parte");
+                        } else {
+                            //lamada al metodo que inserta a la bbdd y le pasamos el string que contiene el json.
+                            insertIntParts(partsString, linea, getOperationUpdate());
+                            System.out.println("Se han actualizado los datitos");
+                        }
+                    } else {
+                        insertIntParts(partsString, linea, getOperationNew());
+                        System.out.println("Añadiendo los datos nuevos");
                     }
                 }
                 System.out.println("Elemento "+listOfParts.size());
@@ -209,7 +215,7 @@ public class ProcesServiceImpl implements ProcesService {
         part.setIdentityCode(partes[4].trim());
         part.setDatePartExternal(getDateFormatMM(partes[1].trim()));
     }
-    public boolean existInfoParts(String p_json) throws SQLException {
+    public boolean existJsonParts(String p_json) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         String query = "SELECT COUNT(*) AS numParts FROM mm_intparts WHERE contJson = ?;";
         PreparedStatement ps = null;
@@ -238,17 +244,37 @@ public class ProcesServiceImpl implements ProcesService {
             }
         }
     }
+    public boolean existIdExternalParts(String idExternal) throws SQLException {
+        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
+        String query = "SELECT COUNT(*) AS idExternal FROM mm_intparts WHERE idExternal = ?;";
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        int count = 0;
+        try {
+            ps = con.prepareStatement(query);
+            ps.setString(1, idExternal);
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                count = rs.getInt("idExternal");
+            }
+            return count > 0;
+        } catch (SQLException e) {
+            System.err.println("Error executing SELECT query(IdExternalVehicle): " + e.getMessage());
+            return false;
+        }
+    }
 
-    public void insertIntParts(String p_json) throws Exception {
+    public void insertIntParts(String p_json, String linea, String operacion) throws Exception {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         String prov = pathFolderProviders.split(";")[0];
         String creator ="mm_app";
+        String[] vehiculos = linea.split(";");
         LocalDateTime fechaHoraActual = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String fechaFormateada = fechaHoraActual.format(formatter);
         String query = "INSERT INTO mm_intparts " +
-                "(idProv, contJson, creationDate, lastUpdate, createdBy, updatedBy, statusProcess) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                "(idProv, contJson, creationDate, lastUpdate, createdBy, updatedBy, statusProcess, idExternal, operation) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = con.prepareStatement(query)) {
             ps.setString(1, prov);
             ps.setString(2, p_json);
@@ -257,6 +283,8 @@ public class ProcesServiceImpl implements ProcesService {
             ps.setString(5, creator);
             ps.setString(6, creator);
             ps.setString(7, estadoFichero[0]);
+            ps.setString(8,vehiculos[0]);
+            ps.setString(9,operacion);
             int rs3 = ps.executeUpdate();
             System.out.println("Se han actualizado " + rs3 + " registros");
         } catch (SQLException e) {
@@ -509,7 +537,7 @@ public class ProcesServiceImpl implements ProcesService {
                     fillVehicleDto(linea, vehiculoDto);
                     listOfVehiculo.add(vehiculoDto);
                     String vehicleString = gson.toJson(vehiculoDto);
-                    boolean existsID = existIdExternalVehicle(vehicles[2]);
+                    boolean existsID = existIdExternalVehicle(vehicles[0]);
                     boolean existsJson = existJsonVehicle(vehicleString);
                     if (existsID) {
                         System.out.println("Existe el idExternal");
@@ -541,7 +569,7 @@ public class ProcesServiceImpl implements ProcesService {
      * */
     public void fillVehicleDto(String linea, VehicleDto vehiculo){
         String[] vehiculos = linea.split(";");
-        String idExternal = vehiculos[2].trim();
+        String idExternal = vehiculos[0].trim();
         String numberPlate = vehiculos[3].trim();
         String tipoVehiculo = vehiculos[4].trim();
         String marca = vehiculos[5].trim();
@@ -620,7 +648,7 @@ public class ProcesServiceImpl implements ProcesService {
             ps.setString(5, creator);
             ps.setString(6, creator);
             ps.setString(7, getStatusNotProcessed());
-            ps.setString(8,vehiculos[2].trim());
+            ps.setString(8,vehiculos[0].trim());
             ps.setString(9,"");
             ps.setString(10,"");
             ps.setString(11,operacion);
