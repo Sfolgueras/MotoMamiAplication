@@ -17,7 +17,7 @@ public class GetCustomerTask {
     public void task(){
         try{
             System.out.println("\nEsta tarea se lanza cada 15 segundos");
-            pService.readFileInfo(C_SOURCE_PARTS);
+            pService.readFileInfo(C_SOURCE_CUSTOMER);
         } catch (Exception e){
             System.err.println("No funcó la tarea de los customers");
         }

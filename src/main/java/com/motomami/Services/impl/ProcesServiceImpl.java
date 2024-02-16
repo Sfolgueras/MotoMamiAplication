@@ -20,7 +20,6 @@ import static com.motomami.Utils.Constants.*;
 
 @Service
 public class ProcesServiceImpl implements ProcesService {
-    //TODO hacer los metodos de existIdExternal en partes y vehiculos
     @Value("${path.folder.outFiles}")
     String pathFolderoutFiles;
     @Value("${path.folder.inFiles}")
@@ -135,13 +134,13 @@ public class ProcesServiceImpl implements ProcesService {
     public Date getDateFormatMM(String sDate) {
         Date dateReturn = null;
         try {
-            dateReturn = new SimpleDateFormat("yyyy/MM/dd").parse(sDate);
+            dateReturn = new SimpleDateFormat("dd/MM/yyyy").parse(sDate);
         } catch (ParseException e){
             try{
                 String [] fecha = sDate.split("-");
                 if(fecha.length == 3){
                     String nuevaFecha = fecha[0]+"/"+fecha[1]+"/"+fecha[2];
-                    dateReturn = new SimpleDateFormat("yyyy/MM/dd").parse(nuevaFecha);
+                    dateReturn = new SimpleDateFormat("dd/MM/yyyy").parse(nuevaFecha);
                 }else{
                     System.err.println("FORMATO INCORRECTO");
                 }
