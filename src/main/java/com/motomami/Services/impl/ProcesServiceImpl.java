@@ -83,12 +83,13 @@ public class ProcesServiceImpl implements ProcesService {
     }
     public void processInfoCustomer() throws SQLException {
         ArrayList<CustomerDto> customers = getCustomerInfoWithStatus(estadoFichero[0]);
+
     }
     //private ArrayList<CustomerDto> getCustomerInfoWithStatusN() throws SQLException {
     private ArrayList<CustomerDto> getCustomerInfoWithStatus(String pStatus) throws SQLException {
-        con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb", "root", "Sergino_PRO1");
+        con = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
-        Gson gson = gsonBuilder.setDateFormat("dd/MM/yyyy").create();
+        Gson gson = gsonBuilder.setDateFormat("yyyy/MM/dd'T'HH:mm:ss.SSSZ").create();
         String query = "SELECT * FROM mm_intcustomers WHERE statusProcess = ?;";
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -100,7 +101,17 @@ public class ProcesServiceImpl implements ProcesService {
             while (rs.next()) {
                 CustomerDto customer;
                 String jsonCustomer = rs.getString("contJson");
+                int id = rs.getInt("id");
                 String operation = rs.getString("operation");
+                System.out.println(id + operation);
+                if (operation.equals("new")){
+                    try {
+                        insertCustomer(jsonCustomer);
+                        updateIntCustomer(id,"P","","");
+                    }catch (Exception ex){
+                        updateIntCustomer(id,"E","MME",ex.getMessage());
+                    }
+                }
                 customer = gson.fromJson(jsonCustomer, CustomerDto.class);
                 customers.add(customer);
             }
@@ -119,6 +130,26 @@ public class ProcesServiceImpl implements ProcesService {
         }
         return customers;
     }
+
+    private void updateIntCustomer(int id, String status, String mme, String message) throws SQLException {
+        con = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+        String query = "UPDATE mm_intcustomers SET statusProcess = ? , msgError = ? , codeError = ?, lastUpdate = sysdate(), updatedBy = ? WHERE id = ?";
+        PreparedStatement ps = con.prepareStatement(query);
+        try{
+            ps.setString(1,status);
+            ps.setString(2,message);
+            ps.setString(3,mme);
+            ps.setString(4,user);
+            ps.setInt(5,id);
+            int result = ps.executeUpdate();
+            if (result > 0){
+                System.out.println("Actualizado");
+            }
+        }catch (SQLException e){
+            System.err.println("Error actualizando intcustomers "+e.getMessage());
+        }
+    }
+
     private String getStatusNotProcessed(){
         return estadoFichero[0];
     }
@@ -134,13 +165,13 @@ public class ProcesServiceImpl implements ProcesService {
     public Date getDateFormatMM(String sDate) {
         Date dateReturn = null;
         try {
-            dateReturn = new SimpleDateFormat("dd/MM/yyyy").parse(sDate);
+            dateReturn = new SimpleDateFormat("yyyy/MM/dd").parse(sDate);
         } catch (ParseException e){
             try{
                 String [] fecha = sDate.split("-");
                 if(fecha.length == 3){
                     String nuevaFecha = fecha[0]+"/"+fecha[1]+"/"+fecha[2];
-                    dateReturn = new SimpleDateFormat("dd/MM/yyyy").parse(nuevaFecha);
+                    dateReturn = new SimpleDateFormat("yyyy/MM/dd").parse(nuevaFecha);
                 }else{
                     System.err.println("FORMATO INCORRECTO");
                 }
@@ -159,7 +190,6 @@ public class ProcesServiceImpl implements ProcesService {
     * */
     public void readFileInfoParts() {
         List<PartDto> listOfParts = new ArrayList<PartDto>();
-        //src/main/resources/in/BBVA/MM_insurance_parts_.dat
         String filePath = pathFolderinFiles+"/"+pathFolderProviders.split(";")[0]+"/"+pathFolderPartsProviders.split(";")[0]+extensionFileProviders;
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
         Gson gson = gsonBuilder.create();
@@ -303,7 +333,7 @@ public class ProcesServiceImpl implements ProcesService {
         String filePath = pathFolderinFiles+"/"+pathFolderProviders.split(";")[0]+"/"+pathFolderCustomersProviders.split(";")[0]+extensionFileProviders;
         //creamos un gson para la serializacion de los objetos clientes para su insercion en la base de datos.
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
-        Gson gson = gsonBuilder.setDateFormat("dd/MM/yyyy").create();
+        Gson gson = gsonBuilder.setDateFormat("yyyy/MM/dd'T'HH:mm:ss.SSSZ").create();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String linea;
             int numlinea = 0;
@@ -432,17 +462,28 @@ public class ProcesServiceImpl implements ProcesService {
     public int insertAddres(DireccionDto direccion) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         String query = "INSERT INTO mm_address (calle, numero, ciudad, codPostal) VALUES (?,?,?,?)";
-        String queryId = "SELECT id from mm_address WHERE";
+        String queryId = "SELECT id from mm_address " +
+                " WHERE calle = ? " +
+                "   and numero = ? " +
+                "   and ciudad = ? " +
+                "   and codPostal = ?";
         PreparedStatement ps = con.prepareStatement(query);
         ps.setString(1,direccion.getTipoVia());
         ps.setInt(2, Integer.parseInt(direccion.getNumero()));
         ps.setString(3,direccion.getCiudad());
         ps.setString(4,direccion.getCodPostal());
+        ps.executeUpdate();
 
-        ResultSet rs = ps.executeQuery(queryId);
+        PreparedStatement psGetId = con.prepareStatement(queryId);
+        psGetId.setString(1,direccion.getTipoVia());
+        psGetId.setInt(2, Integer.parseInt(direccion.getNumero()));
+        psGetId.setString(3,direccion.getCiudad());
+        psGetId.setString(4,direccion.getCodPostal());
+        ResultSet rs = psGetId.executeQuery();
         int id = -1;
         while (rs.next()){
             id = rs.getInt("id");
+            break;
         }
         return id;
     }
@@ -450,26 +491,28 @@ public class ProcesServiceImpl implements ProcesService {
     public void insertCustomer(String p_json) throws SQLException {
         con = DriverManager.getConnection("jdbc:mysql://localhost:3306/motomamidb","root", "Sergino_PRO1");
         GsonBuilder gsonBuilder = new GsonBuilder().serializeNulls().setPrettyPrinting();
-        Gson gson = gsonBuilder.create();
+        Gson gson = gsonBuilder.setPrettyPrinting().setDateFormat("yyyy/MM/dd'T'HH:mm:ss.SSSZ").create();
         CustomerDto customer = gson.fromJson(p_json, CustomerDto.class);
-        String queryInsertCustomer = "INSERT INTO mm_customer (dni, nombre, apellido1, apellido2, email, fecha_nacimiento, telefono, sexo)"+
-                        "VALUES (?,?,?,?,?,?,?,?)";
+        String queryInsertCustomer = "INSERT INTO mm_customer (dni, nombre, apellido1, apellido2, email, fecha_nacimiento, telefono, sexo, direccionId)"+
+                        " VALUES (?,?,?,?,?,?,?,?,?) ";
         PreparedStatement ps = null;
         try {
-            if (insertAddres(customer.getDireccion()) > -1) {
+            int idDireccion = insertAddres(customer.getDireccion());
+            if (idDireccion > -1) {
                 ps = con.prepareStatement(queryInsertCustomer);
                 ps.setString(1, customer.getDNI());
                 ps.setString(2, customer.getNombre());
                 ps.setString(3, customer.getApellido1());
                 ps.setString(4, customer.getApellido2());
                 ps.setString(5, customer.getEmail());
-                ps.setDate(6, (java.sql.Date) customer.getFechaNacimiento());
+                ps.setDate(6, new java.sql.Date(customer.getFechaNacimiento().getTime()));
                 ps.setString(7, customer.getTelefono());
                 ps.setString(8, customer.getSexo());
-                ps.setInt(9,insertAddres(customer.getDireccion()));
+                ps.setInt(9,idDireccion);
+                ps.executeUpdate();
             }
         }catch (SQLException e){
-            System.err.println(e.getMessage());
+            System.err.println("Error insertando a la tabla final customer\n"+ e.getMessage());
         }
     }
 

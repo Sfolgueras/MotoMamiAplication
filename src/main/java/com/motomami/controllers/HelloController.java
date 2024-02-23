@@ -33,6 +33,7 @@ public class HelloController
                     break;
                 case  C_SOURCE_VEHICLE:
                     pService.readFileInfo(C_SOURCE_VEHICLE);
+                    break;
                 default:
             }
         } catch (Exception e){
@@ -63,6 +64,6 @@ public class HelloController
             System.err.println("No funcionan las tareas brr");
         }
         System.out.println("El valor de resource es: "+resource);
-        return "Buenos dias";
+        return "Tamo activo siempre papi";
     }
 }

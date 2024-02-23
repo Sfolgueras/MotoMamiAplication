@@ -16,6 +16,8 @@ create table if not exists mm_intcustomers (
 	operation VARCHAR(50) default 'new'
 )CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+ALTER TABLE mm_intcustomers MODIFY COLUMN msgError longtext;
+
 create table if not exists mm_intvehicles(
 	id INT primary key auto_increment,
 	idProv VARCHAR (25),
