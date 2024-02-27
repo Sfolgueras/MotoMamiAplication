@@ -66,4 +66,19 @@ public class HelloController
         System.out.println("El valor de resource es: "+resource);
         return "Tamo activo siempre papi";
     }
+
+
+    @RequestMapping(value =("/generateInvoice/{p_month}"), method = RequestMethod.GET, produces = "application/json")
+    String callGenerateFile(@PathVariable String p_month){
+        try{
+            System.out.println("\nMe estan llamando desde el process");
+
+           // pService.generateInvoceFile(C_SOURCE_CUSTOMER);
+
+        } catch (Exception e){
+            System.err.println("No funcionan las tareas brr");
+        }
+        System.out.println("El valor de resource es: "+p_month);
+        return "Tamo activo siempre papi";
+    }
 }

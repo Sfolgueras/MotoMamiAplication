@@ -95,6 +95,17 @@ CREATE TABLE mm_part (
     FOREIGN KEY (identityCode) REFERENCES mm_customer(dni)
 )CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+CREATE TABLE mm_invoice (
+    id INT NOT NULL AUTO_INCREMENT,
+    invoice_num BIGINT,
+    invoice_date date,
+    provider_name varchar(100),
+    people_quantity int,
+    unit_price DECIMAL(4, 2),
+    tax int default 21,
+    PRIMARY KEY (id)
+)
+
 
 -- insert into mm_intcustomers 
 -- (idProv, contJson, creationDate, lastUpdate, createdBy, updatedBy) 

@@ -85,6 +85,7 @@ public class ProcesServiceImpl implements ProcesService {
         ArrayList<CustomerDto> customers = getCustomerInfoWithStatus(estadoFichero[0]);
 
     }
+
     //private ArrayList<CustomerDto> getCustomerInfoWithStatusN() throws SQLException {
     private ArrayList<CustomerDto> getCustomerInfoWithStatus(String pStatus) throws SQLException {
         con = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
